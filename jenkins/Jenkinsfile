@@ -1,0 +1,44 @@
+// DO NOT EDIT && DO NOT EDIT && DO NOT EDIT && DO NOT EDIT && DO NOT EDIT
+//
+// University of Minnesota Solar Vehicle Project
+// May 2021
+//
+pipeline {
+    agent any
+    stages {
+        stage('Clang-Format'){
+            steps {
+                sh './jenkins/format-check.sh'
+            }
+        }
+        stage('Build') {
+            steps {
+                // Start with fresh build/
+                sh 'rm -rf build/'
+                // Configure the CMake project
+                sh 'cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE:STRING=$(pwd)/src/cmake/stm32_gcc.cmake -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON'
+                // Build the project using 1 thread per cpu core available
+                sh 'cmake --build build/ --parallel $(nproc)'
+            }
+        }
+    }
+    // post {
+    //     always {
+    //         echo 'This will always run'
+    //     }
+    //     success {
+    //         echo 'This will run only if successful'
+    //     }
+    //     failure {
+    //         echo 'This will run only if failed'
+    //     }
+    //     unstable {
+    //         echo 'This will run only if the run was marked as unstable'
+    //     }
+    //     changed {
+    //         echo 'This will run only if the state of the Pipeline has changed'
+    //         echo 'For example, if the Pipeline was previously failing but is now successful'
+    //     }
+    // }
+}
+// DO NOT EDIT && DO NOT EDIT && DO NOT EDIT && DO NOT EDIT && DO NOT EDIT

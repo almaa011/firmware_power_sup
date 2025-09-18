@@ -1,0 +1,59 @@
+Saji's SVP RTOS guide
+=======================
+This document will show you how to set up FreeRTOS on a new or existing board,
+including any gotchas.
+
+
+
+Step 1: Adding FreeRTOS
+
+To add freertos to your project, call add_freertos(board_name 4) to your CMakeLists.txt.
+If this is a common microcontroller family (L5, G4, F4, G0) then it should just work automatically.
+If it is not a common micro, you'll need to extend the FreeRTOS.cmake file in src/cmake to
+point to the correct ARM Cortex that the micro uses. See the existing lines for an explanation.
+All common architectures should already exist in the src/libraries/FreeRTOS/portable folder.
+
+
+Step 2: Cleaning up HAL.
+
+The STM32 HAL uses the SysTick timer for internal timeout functions by default. We want to use that
+timer for our own purposes, which means that we need the HAL to use a different timer.
+Fortunately, this is easy enough.
+
+There's a file in telemetry/src called hal_timebase_tim.c, which contains some generated code that
+overwrites the HAL's own SysTick functions and uses TIM1 instead. This code should work by copying
+it over to a new board and changing the headers to use the correct family (G4 or G0). If it doesn't
+work, you can try using STM32CubeMX to generate the code by adding FreeRTOS in the config tool 
+and setting SYS->Timebase Source to TIM1 or similar. This will produce a new hal_timebase_tim file.
+
+Next, we need to remove some existing interrupts because FreeRTOS will override them:
+
+`
+void PendSV_Handler(void);
+void SysTick_Handler(void);
+void SVC_Handler(void);
+`
+These are probably defined in {{MICRO_FAMILY_NAME}}_it.h/cc, like stm32l5xx.cc. Just remove them.
+
+Step 3: Configuring FreeRTOS
+Finally, we're ready to include our RTOS configuration file and start programming!
+Copy the FreeRTOSConfig_template.h. This file has been (poorly) customized by ST. The main thing you
+must do is at the bottom. Depending on your architecture, you need to copy the 
+```
+#define xPortSysTickHandler SysTick_Handler
+```
+line, or the
+```
+#define SysTick_Handler xPortSysTickHandler
+```
+line. Most will use the first, but L5 uses the second. And there's a random xPortSysTickHandler
+at the end. I don't think that's relevant so if it causes errors just delete it (telem doesn't have it there).
+
+
+At this point you should be able to do
+
+```
+#include "FreeRTOS.h"
+#include "task.h"
+```
+and things should compile. Then you can start doing basic RTOS examples.
