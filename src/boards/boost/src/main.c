@@ -116,7 +116,7 @@ int main(void)
   while (1)
   {
     LED2_Breath_Update();
-    HAL_Delay(5);  // Pace the breathing animation.
+    HAL_Delay(BOOST_MAIN_LOOP_DELAY_MS);  // Pace the breathing animation.
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -135,7 +135,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  if (HAL_PWREx_ControlVoltageScaling(BOOST_VOLTAGE_SCALING) != HAL_OK)
   {
     Error_Handler();
   }
@@ -143,11 +143,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.OscillatorType = BOOST_RCC_OSCILLATOR_TYPE;
+  RCC_OscInitStruct.MSIState = BOOST_RCC_MSI_STATE;
+  RCC_OscInitStruct.MSICalibrationValue = BOOST_RCC_MSI_CALIBRATION;
+  RCC_OscInitStruct.MSIClockRange = BOOST_RCC_MSI_CLOCK_RANGE;
+  RCC_OscInitStruct.PLL.PLLState = BOOST_RCC_PLL_STATE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -155,14 +155,13 @@ void SystemClock_Config(void)
 
   /** Initializes the CPU, AHB and APB buses clocks
   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.ClockType = BOOST_RCC_CLOCK_TYPE;
+  RCC_ClkInitStruct.SYSCLKSource = BOOST_RCC_SYSCLK_SOURCE;
+  RCC_ClkInitStruct.AHBCLKDivider = BOOST_RCC_AHBCLK_DIVIDER;
+  RCC_ClkInitStruct.APB1CLKDivider = BOOST_RCC_APB1CLK_DIVIDER;
+  RCC_ClkInitStruct.APB2CLKDivider = BOOST_RCC_APB2CLK_DIVIDER;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, BOOST_FLASH_LATENCY) != HAL_OK)
   {
     Error_Handler();
   }
@@ -183,15 +182,15 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 1 */
 
   /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00100D14;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  hi2c1.Instance = BOOST_I2C1_INSTANCE;
+  hi2c1.Init.Timing = BOOST_I2C1_TIMING;
+  hi2c1.Init.OwnAddress1 = BOOST_I2C1_OWN_ADDRESS1;
+  hi2c1.Init.AddressingMode = BOOST_I2C1_ADDRESSING_MODE;
+  hi2c1.Init.DualAddressMode = BOOST_I2C1_DUAL_ADDRESS_MODE;
+  hi2c1.Init.OwnAddress2 = BOOST_I2C1_OWN_ADDRESS2;
+  hi2c1.Init.OwnAddress2Masks = BOOST_I2C1_OWN_ADDRESS2_MASKS;
+  hi2c1.Init.GeneralCallMode = BOOST_I2C1_GENERAL_CALL_MODE;
+  hi2c1.Init.NoStretchMode = BOOST_I2C1_NO_STRETCH_MODE;
   if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
     Error_Handler();
@@ -199,14 +198,14 @@ static void MX_I2C1_Init(void)
 
   /** Configure Analogue filter
   */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, BOOST_I2C1_ANALOG_FILTER) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
   */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, BOOST_I2C1_DIGITAL_FILTER) != HAL_OK)
   {
     Error_Handler();
   }
@@ -232,20 +231,20 @@ static void MX_SPI1_Init(void)
 
   /* USER CODE END SPI1_Init 1 */
   /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 7;
-  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Instance = BOOST_SPI1_INSTANCE;
+  hspi1.Init.Mode = BOOST_SPI1_MODE;
+  hspi1.Init.Direction = BOOST_SPI1_DIRECTION;
+  hspi1.Init.DataSize = BOOST_SPI1_DATA_SIZE;
+  hspi1.Init.CLKPolarity = BOOST_SPI1_CLK_POLARITY;
+  hspi1.Init.CLKPhase = BOOST_SPI1_CLK_PHASE;
+  hspi1.Init.NSS = BOOST_SPI1_NSS;
+  hspi1.Init.BaudRatePrescaler = BOOST_SPI1_BAUDRATE_PRESCALER;
+  hspi1.Init.FirstBit = BOOST_SPI1_FIRST_BIT;
+  hspi1.Init.TIMode = BOOST_SPI1_TI_MODE;
+  hspi1.Init.CRCCalculation = BOOST_SPI1_CRC_CALCULATION;
+  hspi1.Init.CRCPolynomial = BOOST_SPI1_CRC_POLYNOMIAL;
+  hspi1.Init.CRCLength = BOOST_SPI1_CRC_LENGTH;
+  hspi1.Init.NSSPMode = BOOST_SPI1_NSSP_MODE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -271,12 +270,12 @@ static void MX_USB_OTG_FS_HCD_Init(void)
   /* USER CODE BEGIN USB_OTG_FS_Init 1 */
 
   /* USER CODE END USB_OTG_FS_Init 1 */
-  hhcd_USB_OTG_FS.Instance = USB_OTG_FS;
-  hhcd_USB_OTG_FS.Init.Host_channels = 8;
-  hhcd_USB_OTG_FS.Init.speed = HCD_SPEED_FULL;
-  hhcd_USB_OTG_FS.Init.dma_enable = DISABLE;
-  hhcd_USB_OTG_FS.Init.phy_itface = HCD_PHY_EMBEDDED;
-  hhcd_USB_OTG_FS.Init.Sof_enable = ENABLE;
+  hhcd_USB_OTG_FS.Instance = BOOST_USB_OTG_FS_INSTANCE;
+  hhcd_USB_OTG_FS.Init.Host_channels = BOOST_USB_OTG_FS_HOST_CHANNELS;
+  hhcd_USB_OTG_FS.Init.speed = BOOST_USB_OTG_FS_SPEED;
+  hhcd_USB_OTG_FS.Init.dma_enable = BOOST_USB_OTG_FS_DMA_ENABLE;
+  hhcd_USB_OTG_FS.Init.phy_itface = BOOST_USB_OTG_FS_PHY_INTERFACE;
+  hhcd_USB_OTG_FS.Init.Sof_enable = BOOST_USB_OTG_FS_SOF_ENABLE;
   if (HAL_HCD_Init(&hhcd_USB_OTG_FS) != HAL_OK)
   {
     Error_Handler();
@@ -294,14 +293,14 @@ static void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
+  BOOST_DMA1_ENABLE_CLOCK();
 
   /* DMA interrupt init */
   /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, BOOST_DMA1_CH2_PRIORITY, BOOST_DMA1_CH2_SUBPRIORITY);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, BOOST_DMA1_CH3_PRIORITY, BOOST_DMA1_CH3_SUBPRIORITY);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 
 }
@@ -318,8 +317,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+  BOOST_GPIO_ENABLE_PORTS();
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -360,4 +358,5 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
 
