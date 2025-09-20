@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "led_breath.h"
+#include "mosfet_pwm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,11 +51,7 @@ DMA_HandleTypeDef hdma_spi1_tx;
 HCD_HandleTypeDef hhcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
-static const float kLed2MinBrightness = 0.0f;
-static const float kLed2MaxBrightness = 1.0f;
-static const float kLed2StepSize = 0.01f;  // Smaller values slow the breathing rhythm.
-static float s_led2_brightness = 0.0f;
-static float s_led2_delta = 0.0f;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,30 +62,12 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USB_OTG_FS_HCD_Init(void);
 /* USER CODE BEGIN PFP */
-static void LED2_Breath_Init(void);
-static void LED2_Breath_Update(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void LED2_Breath_Init(void) {
-    s_led2_brightness = kLed2MinBrightness;
-    s_led2_delta = kLed2StepSize;
-    LED2_SetBrightness(s_led2_brightness);
-}
 
-static void LED2_Breath_Update(void) {
-    s_led2_brightness += s_led2_delta;
-    if (s_led2_brightness >= kLed2MaxBrightness) {
-        s_led2_brightness = kLed2MaxBrightness;
-        s_led2_delta = -kLed2StepSize;
-    } else if (s_led2_brightness <= kLed2MinBrightness) {
-        s_led2_brightness = kLed2MinBrightness;
-        s_led2_delta = kLed2StepSize;
-    }
-
-    LED2_SetBrightness(s_led2_brightness);
-}
 /* USER CODE END 0 */
 
 /**
@@ -123,11 +102,13 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   MX_USB_OTG_FS_HCD_Init();
   LED2_PWM_Init();
+  MOSFET_PWM_Init();
   LED2_Breath_Init();
   /* USER CODE BEGIN 2 */
-
+  // Peripheral bring-up is handled by helper modules; main just orchestrates the sequence.
   /* USER CODE END 2 */
 
   /* Infinite loop */

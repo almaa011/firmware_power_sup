@@ -18,6 +18,8 @@ target_sources(BOOST PRIVATE
     src/adc.c
     src/i2c.c
     src/led_pwm.c
+    src/led_breath.c
+    src/mosfet_pwm.c
     src/spi.c
     src/stm32l4xx_hal_msp.c
     src/stm32l4xx_it.c
