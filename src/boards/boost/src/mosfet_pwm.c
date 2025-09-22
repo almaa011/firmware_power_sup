@@ -1,131 +1,110 @@
 #include "mosfet_pwm.h"
 
-// PWM tuning parameters for the boost MOSFET gate drive.
-#define MOSFET_PWM_FREQUENCY_HZ \
-    (100000U)  // 100 kHz switching frequency target.
-#define MOSFET_PWM_TIMER_INSTANCE \
-    TIM2  // TIM2_CH1 maps to PA0 on the Nucleo-64 D3 header.
-#define MOSFET_PWM_TIMER_CHANNEL TIM_CHANNEL_1
-#define MOSFET_PWM_DEFAULT_DUTY \
-    (0.45f)  // 45% duty keeps the converter in a safe startup point.
-#define MOSFET_PWM_MIN_DUTY (0.0f)
-#define MOSFET_PWM_MAX_DUTY \
-    (0.98f)  // Leave headroom to guarantee a minimum off-time.
+#define MOSFET_PWM_PERIOD_TICKS   (255U)
+#define MOSFET_PWM_DEFAULT_COMPARE (125U)
+#define MOSFET_PWM_CHANNEL        TIM_CHANNEL_1
+#define MOSFET_PWM_MIN_DUTY       (0.0f)
+#define MOSFET_PWM_MAX_DUTY       (1.0f)
 
-// Internal bookkeeping so duty-cycle updates can translate into timer counts.
-static uint32_t s_mosfet_period_ticks = 0U;
+TIM_HandleTypeDef htim1;
 
-// Timer handle is shared with the HAL MSP layer.
-TIM_HandleTypeDef htim2;
+static void MX_TIM1_Init(void)
+{
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
-// Determine the effective clock frequency feeding the timer peripheral.
-// This is necessary because the timer clock may run at 2x the APB bus clock
-// when that bus is prescaled.
-static uint32_t MOSFET_PWM_GetTimerClockHz(void) {
-    // TIM2 sits on APB1; when that bus is prescaled the timer clock runs at 2x
-    // the bus clock.
-    uint32_t pclk1_hz = HAL_RCC_GetPCLK1Freq();
-    uint32_t apb1_prescaler_bits = RCC->CFGR & RCC_CFGR_PPRE1_Msk;
-    if (apb1_prescaler_bits >= RCC_CFGR_PPRE1_DIV2) {
-        pclk1_hz *= 2U;
-    }
-    return pclk1_hz;
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = MOSFET_PWM_PERIOD_TICKS;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = MOSFET_PWM_DEFAULT_COMPARE;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, MOSFET_PWM_CHANNEL) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
+  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+  sBreakDeadTimeConfig.Break2Filter = 0;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  HAL_TIM_MspPostInit(&htim1);
 }
 
-// Set the PWM duty cycle as a fraction from 0.0 to 1.0.
-void MOSFET_PWM_SetDutyCycle(float duty_cycle) {
-    // Clamp the requested duty cycle to keep the converter within safe bounds.
-    if (duty_cycle < MOSFET_PWM_MIN_DUTY) {
-        duty_cycle = MOSFET_PWM_MIN_DUTY;
-    } else if (duty_cycle > MOSFET_PWM_MAX_DUTY) {
-        duty_cycle = MOSFET_PWM_MAX_DUTY;
-    }
+void MOSFET_PWM_Init(void)
+{
+  MX_TIM1_Init();
 
-    if (s_mosfet_period_ticks == 0U) {
-        return;  // Timer has not been initialised yet.
-    }
-
-    uint32_t compare_ticks =
-        (uint32_t)((duty_cycle * (float)s_mosfet_period_ticks) +
-                   0.5f);  // Convert duty cycle into timer counts.
-    if (compare_ticks >=
-        s_mosfet_period_ticks) {  // Prevent a 100% duty cycle that would lock
-                                  // the switch on.
-        compare_ticks = s_mosfet_period_ticks - 1U;
-    }
-
-    __HAL_TIM_SET_COMPARE(&htim2, MOSFET_PWM_TIMER_CHANNEL, compare_ticks);
+  __HAL_TIM_SET_COMPARE(&htim1, MOSFET_PWM_CHANNEL, MOSFET_PWM_DEFAULT_COMPARE);
+  if (HAL_TIM_PWM_Start(&htim1, MOSFET_PWM_CHANNEL) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
-// Initialize the timer peripheral and start PWM output on the configured pin.
-void MOSFET_PWM_Init(void) {
-    // Push the default duty cycle before the timer starts to avoid an initial
-    // glitch.
-    MOSFET_PWM_SetDutyCycle(MOSFET_PWM_DEFAULT_DUTY);
+void MOSFET_PWM_SetDutyCycle(float duty_cycle)
+{
+  if (duty_cycle < MOSFET_PWM_MIN_DUTY)
+  {
+    duty_cycle = MOSFET_PWM_MIN_DUTY;
+  }
+  else if (duty_cycle > MOSFET_PWM_MAX_DUTY)
+  {
+    duty_cycle = MOSFET_PWM_MAX_DUTY;
+  }
 
-    // Kick the timer into run mode so the gate waveform appears on PA0
-    // (TIM2_CH1).
-    if (HAL_TIM_PWM_Start(&htim2, MOSFET_PWM_TIMER_CHANNEL) != HAL_OK) {
-        Error_Handler();
-    }
-}
+  if (htim1.Instance == NULL)
+  {
+    return;
+  }
 
-// Timer init function
-void MX_TIM2_Init(void) {
-    uint32_t timer_clock_hz =
-        MOSFET_PWM_GetTimerClockHz();  // Determine the effective clock feeding
-                                       // TIM2.
-    uint64_t ticks =
-        ((uint64_t)timer_clock_hz + (MOSFET_PWM_FREQUENCY_HZ / 2U)) /
-        MOSFET_PWM_FREQUENCY_HZ;  // Round to the nearest whole timer tick.
-    if (ticks == 0ULL)  // Protect against an extremely low requested frequency.
-    {
-        ticks = 1ULL;
-    }
-    uint32_t period_ticks =
-        (uint32_t)ticks;     // Total counts for one PWM period (ARR + 1).
-    if (period_ticks == 0U)  // Ensure ARR never underflows when we subtract 1.
-    {
-        period_ticks = 1U;
-    }
+  uint32_t period = __HAL_TIM_GET_AUTORELOAD(&htim1);
+  uint32_t compare = (uint32_t)((duty_cycle * (float)(period + 1U)) + 0.5f);
+  if (compare > period)
+  {
+    compare = period;
+  }
 
-    htim2.Instance = MOSFET_PWM_TIMER_INSTANCE;
-    htim2.Init.Prescaler = 0;
-    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = period_ticks - 1U;
-    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-    if (HAL_TIM_PWM_Init(&htim2) != HAL_OK) {
-        Error_Handler();
-    }
-
-    TIM_OC_InitTypeDef sConfigOC = {0};
-    uint32_t default_pulse =
-        (uint32_t)((double)period_ticks * (double)MOSFET_PWM_DEFAULT_DUTY +
-                   0.5);  // Preload CCR with the desired gate duty.
-    if (default_pulse >=
-        period_ticks)  // Keep at least one timer tick of off-time.
-    {
-        default_pulse = period_ticks - 1U;
-        HAL_TIM_MspPostInit(
-            &htim2);  // Configure the PA0 pin for the PWM alternate function.
-    }
-    sConfigOC.OCMode = TIM_OCMODE_PWM1;
-    sConfigOC.Pulse = default_pulse;
-    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-    if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC,
-                                  MOSFET_PWM_TIMER_CHANNEL) != HAL_OK) {
-        Error_Handler();
-    }
-
-    HAL_TIM_MspPostInit(
-        &htim2);  // Configure the PA0 pin for the PWM alternate function.
-
-    s_mosfet_period_ticks =
-        period_ticks;  // Cache for duty-cycle calculations outside of init.
-
-    /* USER CODE BEGIN TIM2_Init 2 */
-
-    /* USER CODE END TIM2_Init 2 */
+  __HAL_TIM_SET_COMPARE(&htim1, MOSFET_PWM_CHANNEL, compare);
 }

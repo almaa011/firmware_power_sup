@@ -25,4 +25,5 @@ target_sources(BOOST PRIVATE
     src/stm32l4xx_it.c
     src/syscalls.c
     src/sysmem.c
+    src/enable1.c
 )
