@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boost PWM Control</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main
+    class="card"
+    data-initial-duty="{{ duty_cycle|round(2) }}"
+    data-last-updated="{{ last_updated or '' }}"
+    data-api-duty="{{ url_for('api_get_duty_cycle') }}"
+    data-api-duty-update="{{ url_for('api_set_duty_cycle') }}"
+  >
+    <h1>PWM Duty Cycle</h1>
+    <p class="description">Use the slider to set the MOSFET PWM duty cycle.</p>
+
+    <label for="dutyCycleSlider">
+      Duty Cycle (%)
+    </label>
+    <div class="value"><span id="dutyCycleValue">{{ duty_cycle|round(1) }}</span>%</div>
+    <input
+      id="dutyCycleSlider"
+      type="range"
+      min="0"
+      max="100"
+      step="0.5"
+      value="{{ duty_cycle|round(1) }}"
+      aria-describedby="statusMessage"
+    >
+
+    <p class="last-saved">
+      Last saved duty cycle:
+      <span id="lastSavedValue">{{ duty_cycle|round(1) }}</span>%
+    </p>
+    <p class="last-updated" id="lastUpdatedValue">
+      {% if last_updated %}{{ last_updated }}{% else %}&mdash;{% endif %}
+    </p>
+
+    <div class="actions">
+      <button id="applyButton" type="button">Apply</button>
+      <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
