@@ -77,7 +77,6 @@ void HAL_MspInit(void)
   /* USER CODE END MspInit 1 */
 }
 
-#ifdef HAL_UART_MODULE_ENABLED
 /**
   * @brief UART MSP Initialization
   * This function configures the hardware resources used in this example
@@ -154,7 +153,6 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
   }
 
 }
-#endif /* HAL_UART_MODULE_ENABLED */
 
 /* USER CODE BEGIN 1 */
 
