@@ -1,3 +1,4 @@
 
 # Include BOOST board
-add_subdirectory(boost)
+
+add_subdirectory(USBTEST)
